@@ -31,3 +31,33 @@ exports.getFacebookPages = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch pages' });
   }
 };
+
+exports.getMockPages = (req, res) => {
+  return res.json({
+    pages: [
+      {
+        page_id: '1234567890',
+        page_name: 'Blagat TV',
+        ig_id: '17841400000000000',
+        access_token: 'MOCK_PAGE_TOKEN'
+      }
+    ]
+  });
+};
+
+exports.getMockInsights = (req, res) => {
+  const ig_id = req.query.ig_id;
+  if (!ig_id) return res.status(400).json({ error: 'Missing ig_id' });
+
+  return res.json({
+    ig_id,
+    metrics: {
+      followers_count: 9542,
+      impressions: 123456,
+      reach: 86742,
+      profile_views: 3912,
+      website_clicks: 123
+    },
+    timestamp: new Date().toISOString()
+  });
+};

@@ -10,6 +10,7 @@ import {
   Tooltip,
   Legend,
 } from 'chart.js';
+import InstagramMedia from '../components/InstagramMedia';
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
@@ -127,6 +128,9 @@ const Dashboard: React.FC = () => {
           />
         </div>
       )}
+
+      {selected && <InstagramMedia ig_id={selected.ig_id} />}
+
     </div>
   );
 };

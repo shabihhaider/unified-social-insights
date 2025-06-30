@@ -27,6 +27,9 @@ try {
   console.error('❌ Error loading auth routes:', err.message);
 }
 
+// Add this after app.use('/api/auth', ...)
+app.use('/api/meta', require('./routes/metaRoutes'));
+
 app.use((req, res) => {
   res.status(404).json({
     error: 'Route not found',

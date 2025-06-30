@@ -7,5 +7,6 @@ console.log('🔥 /api/meta mock router loaded');
 
 router.get('/mock-pages', auth, meta.getMockPages);
 router.get('/insights', auth, meta.getMockInsights);
+router.get('/media', auth, meta.getMockMedia);
 
 module.exports = router;

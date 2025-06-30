@@ -61,3 +61,35 @@ exports.getMockInsights = (req, res) => {
     timestamp: new Date().toISOString()
   });
 };
+
+exports.getMockMedia = (req, res) => {
+  const { ig_id } = req.query;
+  if (!ig_id) return res.status(400).json({ error: 'Missing ig_id' });
+
+  return res.json({
+    ig_id,
+    media: [
+      {
+        id: '1001',
+        caption: '💡 Tips to grow your reach',
+        media_url: 'https://via.placeholder.com/300x300.png?text=Post+1',
+        like_count: 143,
+        comments_count: 21
+      },
+      {
+        id: '1002',
+        caption: '🎉 Launch Day Highlights!',
+        media_url: 'https://via.placeholder.com/300x300.png?text=Post+2',
+        like_count: 289,
+        comments_count: 57
+      },
+      {
+        id: '1003',
+        caption: '📈 Growth over 7 days',
+        media_url: 'https://via.placeholder.com/300x300.png?text=Post+3',
+        like_count: 378,
+        comments_count: 84
+      }
+    ]
+  });
+};

@@ -34,7 +34,7 @@ const Dashboard: React.FC = () => {
   const [selected, setSelected] = useState<Page | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
 
-  // Fetch mock pages
+  // Fetch pages on load
   useEffect(() => {
     if (!token) return;
     axios
@@ -44,14 +44,13 @@ const Dashboard: React.FC = () => {
       .then(res => {
         const data = res.data as { pages: Page[] };
         setPages(data.pages);
-        if (data.pages.length) {
-          setSelected(data.pages[0]);
+        if (data.pages.length > 0) {
+          setSelected(data.pages[0]); // auto-select first
         }
-      })
-      .catch(err => console.error('Pages fetch error:', err));
+      });
   }, [token]);
 
-  // Fetch insights for selected page
+  // Fetch insights when page selected
   useEffect(() => {
     if (!selected || !token) return;
     axios
@@ -62,42 +61,58 @@ const Dashboard: React.FC = () => {
         const data = res.data as { metrics: Metrics };
         setMetrics(data.metrics);
       })
-      .catch(err => console.error('Insights fetch error:', err));
+      .catch(err => console.error('❌ Error loading insights:', err));
   }, [selected, token]);
 
-  return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-4">📊 Unified Social Insights</h1>
-      <p className="mb-2 text-gray-600">Welcome {user?.email || 'User'}</p>
-      <button onClick={logout} className="bg-red-500 text-white px-4 py-1 rounded mb-4">
-        Logout
-      </button>
+  if (!user) return <p className="text-center">Not authenticated</p>;
 
-      {pages.length > 1 && (
+  return (
+    <div className="p-8 space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Welcome {user.email || `User ID: ${user.id}`}</h1>
+        <button onClick={logout} className="text-red-500 underline">Logout</button>
+      </div>
+
+      {/* Page dropdown */}
+      <div>
+        <label className="font-semibold">Select Page:</label>
         <select
-          className="border p-2 rounded mb-4"
+          value={selected?.page_id || ''}
           onChange={e => {
-            const selectedPage = pages.find(p => p.page_id === e.target.value);
-            setSelected(selectedPage || null);
+            const page = pages.find(p => p.page_id === e.target.value);
+            if (page) setSelected(page);
           }}
-          value={selected?.page_id}
+          className="border p-2 ml-2"
         >
-          {pages.map(p => (
-            <option key={p.page_id} value={p.page_id}>
-              {p.page_name}
+          {pages.map(page => (
+            <option key={page.page_id} value={page.page_id}>
+              {page.page_name}
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Stat cards */}
+      {metrics && (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="bg-blue-100 p-4 rounded shadow">📊 Followers: <b>{metrics.followers_count}</b></div>
+          <div className="bg-green-100 p-4 rounded shadow">📈 Impressions: <b>{metrics.impressions}</b></div>
+          <div className="bg-yellow-100 p-4 rounded shadow">👥 Reach: <b>{metrics.reach}</b></div>
+          <div className="bg-purple-100 p-4 rounded shadow">👀 Profile Views: <b>{metrics.profile_views}</b></div>
+          <div className="bg-pink-100 p-4 rounded shadow">🔗 Website Clicks: <b>{metrics.website_clicks}</b></div>
+        </div>
       )}
 
-      {metrics ? (
-        <div className="mt-6">
+      {/* Chart */}
+      {metrics && (
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-2">Instagram Analytics</h2>
           <Bar
             data={{
               labels: ['Followers', 'Impressions', 'Reach', 'Profile Views', 'Website Clicks'],
               datasets: [
                 {
-                  label: 'Metrics',
+                  label: 'Count',
                   data: [
                     metrics.followers_count,
                     metrics.impressions,
@@ -105,20 +120,12 @@ const Dashboard: React.FC = () => {
                     metrics.profile_views,
                     metrics.website_clicks,
                   ],
-                  backgroundColor: [
-                    '#3b82f6',
-                    '#10b981',
-                    '#f59e0b',
-                    '#ef4444',
-                    '#8b5cf6',
-                  ],
+                  backgroundColor: '#3b82f6',
                 },
               ],
             }}
           />
         </div>
-      ) : (
-        <p>Loading metrics...</p>
       )}
     </div>
   );

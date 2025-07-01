@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from '../utils/axios';
 import { useAuth } from '../context/AuthContext';
+import PostChart from './PostChart';
 
 interface MediaItem {
   id: string;
@@ -45,6 +46,7 @@ const InstagramMedia: React.FC<Props> = ({ ig_id }) => {
           </div>
         ))}
       </div>
+      <PostChart posts={media} />
     </div>
   );
 };

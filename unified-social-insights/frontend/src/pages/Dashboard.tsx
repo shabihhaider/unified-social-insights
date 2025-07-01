@@ -34,36 +34,40 @@ const Dashboard: React.FC = () => {
   const [pages, setPages] = useState<Page[]>([]);
   const [selected, setSelected] = useState<Page | null>(null);
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [range, setRange] = useState(7);
 
-  // Fetch pages on load
+  // ✅ Fetch pages from backend (token is already saved in DB)
   useEffect(() => {
     if (!token) return;
-    axios
-      .get('/api/meta/mock-pages', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then(res => {
-        const data = res.data as { pages: Page[] };
-        setPages(data.pages);
-        if (data.pages.length > 0) {
-          setSelected(data.pages[0]); // auto-select first
-        }
-      });
+
+    axios.get('/api/meta/pages', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then(res => {
+      const data = res.data as { pages: Page[] };
+      setPages(data.pages);
+      if (data.pages.length > 0) {
+        setSelected(data.pages[0]);
+      }
+    })
+    .catch(err => {
+      console.error("❌ Error loading pages:", err);
+    });
   }, [token]);
 
-  // Fetch insights when page selected
+  // ✅ Fetch insights when page or range changes
   useEffect(() => {
     if (!selected || !token) return;
-    axios
-      .get(`/api/meta/insights?ig_id=${selected.ig_id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-      .then(res => {
-        const data = res.data as { metrics: Metrics };
-        setMetrics(data.metrics);
-      })
-      .catch(err => console.error('❌ Error loading insights:', err));
-  }, [selected, token]);
+
+    axios.get(`/api/meta/insights?ig_id=${selected.ig_id}&range=${range}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    .then(res => {
+      const data = res.data as { metrics: Metrics };
+      setMetrics(data.metrics);
+    })
+    .catch(err => console.error('❌ Error loading insights:', err));
+  }, [selected, token, range]);
 
   if (!user) return <p className="text-center">Not authenticated</p>;
 
@@ -90,6 +94,19 @@ const Dashboard: React.FC = () => {
               {page.page_name}
             </option>
           ))}
+        </select>
+      </div>
+
+      {/* Date range */}
+      <div className="mb-4">
+        <label className="font-semibold">Date Range: </label>
+        <select
+          value={range}
+          onChange={e => setRange(Number(e.target.value))}
+          className="border p-1 ml-2"
+        >
+          <option value={7}>Last 7 Days</option>
+          <option value={30}>Last 30 Days</option>
         </select>
       </div>
 
@@ -129,8 +146,8 @@ const Dashboard: React.FC = () => {
         </div>
       )}
 
+      {/* Media preview */}
       {selected && <InstagramMedia ig_id={selected.ig_id} />}
-
     </div>
   );
 };

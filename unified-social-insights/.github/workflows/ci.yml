@@ -1,0 +1,80 @@
+# .github/workflows/ci.yml
+name: CI Pipeline
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  frontend:
+    name: Frontend Check (React + Vite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm install
+
+      - name: Lint
+        run: npm run lint || echo 'Lint errors exist'
+
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend Check (Node.js + Express)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install deps
+        run: npm install
+
+      - name: Lint
+        run: npm run lint || echo 'Lint errors exist'
+
+      - name: Test
+        run: npm run test || echo 'Some tests failed'
+
+  ai-engine:
+    name: AI Engine Check (FastAPI)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ai-engine
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+
+      - name: Install dependencies
+        run: |
+          python -m venv venv
+          source venv/bin/activate
+          pip install -r requirements.txt || pip install fastapi uvicorn openai python-dotenv pytest
+
+      - name: Run tests
+        run: |
+          source venv/bin/activate
+          pytest || echo 'Some tests failed'

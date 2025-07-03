@@ -18,7 +18,7 @@ async function connectDB() {
     // Ensure users table exists
     const createUserTable = `
       CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255),
         role VARCHAR(50) DEFAULT 'user',
@@ -28,6 +28,23 @@ async function connectDB() {
     `;
     await pool.query(createUserTable);
     console.log('✅ Ensured users table exists');
+
+    // Ensure instagram_insights table exists (corrected schema)
+    const createInstagramInsightsTable = `
+      CREATE TABLE IF NOT EXISTS instagram_insights (
+        id SERIAL PRIMARY KEY,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        username VARCHAR(255),
+        followers_count INTEGER,
+        follows_count INTEGER,
+        media_count INTEGER,
+        full_name VARCHAR(255),
+        fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `;
+    await pool.query(createInstagramInsightsTable);
+    console.log('✅ Ensured instagram_insights table exists');
+
   } catch (err) {
     console.error('❌ PostgreSQL connection failed:', err.message);
     throw err;

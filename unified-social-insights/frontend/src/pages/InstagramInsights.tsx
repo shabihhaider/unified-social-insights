@@ -60,7 +60,8 @@ const InstagramInsights: React.FC = () => {
   const [insights, setInsights] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [range, setRange] = useState(7);
+  
   useEffect(() => {
     if (
       !user ||
@@ -80,6 +81,7 @@ const InstagramInsights: React.FC = () => {
           instagram_account_id: user.instagram_account_id,
           access_token: user.access_token,
           user_id: user.id,
+          range,
         });
         const data = res.data as { data: any };
         setInsights(data.data);
@@ -92,7 +94,7 @@ const InstagramInsights: React.FC = () => {
     };
 
     fetchInsights();
-  }, [user]);
+  }, [user, range]);
 
   if (loading) {
     return (
@@ -250,6 +252,19 @@ const InstagramInsights: React.FC = () => {
             </div>
           </motion.div>
         )}
+
+        <div className="text-center mb-4">
+          <label className="text-sm mr-2">Date Range:</label>
+          <select
+            className="border rounded px-3 py-1 text-sm"
+            value={range}
+            onChange={(e) => setRange(parseInt(e.target.value))}
+          >
+            <option value={7}>Last 7 days</option>
+            <option value={14}>Last 14 days</option>
+            <option value={30}>Last 30 days</option>
+          </select>
+        </div>
 
         {/* Enhanced Chart */}
         {(reachData?.values?.length || impressionsData?.values?.length) && (

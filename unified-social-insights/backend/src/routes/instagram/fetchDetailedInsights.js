@@ -117,7 +117,8 @@ const calculateGrowthTrends = (metrics) => {
 };
 
 router.post('/api/instagram/fetch-detailed-insights', async (req, res) => {
-  const { instagram_account_id, access_token, user_id } = req.body;
+  const { instagram_account_id, access_token, user_id, range = 7 } = req.body;
+  const rangeInt = parseInt(range);
   
   if (!instagram_account_id || !access_token || !user_id) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -149,9 +150,13 @@ router.post('/api/instagram/fetch-detailed-insights', async (req, res) => {
     );
     
     const insightsResults = await Promise.all(insightsPromises);
-    const allMetrics = insightsResults
-    .filter(r => Array.isArray(r.data))
-    .flatMap(result => result.data);
+    const allMetrics = insightsResults.flatMap(result => {
+        const values = result.data?.data?.[0]?.values || [];
+        return [{
+        name: result.data?.data?.[0]?.name,
+        values: values.slice(-rangeInt) // ⬅️ limit by range
+        }];
+    });
 
     
     // 3. Extended Media Analysis (More posts for better insights)

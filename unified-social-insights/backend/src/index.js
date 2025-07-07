@@ -34,6 +34,9 @@ app.use("/api/insights", insightsRoute);       // AI engine route
 app.use("/api/instagram", instagramRoutes);    // Instagram fetch route
 app.use("/api/auth", authRoute);               // Facebook OAuth route
 
+const fetchDetailedInsights = require('./routes/instagram/fetchDetailedInsights');
+app.use(fetchDetailedInsights);
+
 // ✅ Optional test route
 app.get("/api/test", (req, res) => {
   res.json({ message: "✅ Backend is responding" });

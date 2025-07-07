@@ -1,87 +1,99 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from '../utils/axios';
 
 interface User {
-  id: number;
-  email?: string;
-  role?: string;
-  access_token?: string;
-  instagram_account_id?: string;
+  id: string;
+  email: string;
+  full_name: string;
+  instagram_account_id: string;
+  page_name?: string;
+  created_at: string;
 }
 
 interface AuthContextProps {
   user: User | null;
   token: string | null;
-  login: (token: string) => Promise<boolean>; // ✅ Corrected return type
-  loginWithToken: (token: string) => void;
+  loading: boolean;
+  login: (token: string) => Promise<boolean>;
   logout: () => void;
+  refreshToken: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(() => 
+    localStorage.getItem('token')
+  );
   const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(!!token);
 
-  useEffect(() => {
-    if (token) {
-      localStorage.setItem('token', token);
-
-      const fetchUser = async () => {
-        try {
-          const res = await axios.get('/api/auth/me', {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          const data = res.data as { user: User };
-          console.log('✅ Loaded user from token:', data.user);
-          setUser(data.user);
-        } catch (err) {
-          console.error('❌ Failed to fetch user from token:', err);
-          logout();
-        }
-      };
-
-      fetchUser();
-    } else {
-      console.log('🚫 No token in localStorage');
-    }
-  }, [token]);
-
-  const login = async (newToken: string): Promise<boolean> => {
-    console.log('🔐 Login with token:', newToken);
-    setToken(newToken);
-    localStorage.setItem('token', newToken);
-
-    try {
-      const res = await axios.get('/api/auth/me', {
-        headers: { Authorization: `Bearer ${newToken}` },
-      });
-      const data = res.data as { user: User };
-      console.log('✅ User loaded during login:', data.user);
-      setUser(data.user);
-      return true;
-    } catch (err) {
-      console.error('❌ Failed to fetch user during login:', err);
-      logout();
-      return false;
-    }
-  };
-
-  const loginWithToken = (newToken: string) => {
-    console.log('🔐 LoginWithToken:', newToken);
-    setToken(newToken);
-  };
-
-  const logout = () => {
-    console.log('🚪 Logging out...');
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
-  };
+    setLoading(false);
+  }, []);
+
+  const fetchUser = useCallback(async (authToken: string) => {
+    try {
+      const { data } = await axios.get('/api/auth/me', {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      const userData = data as { user: User };
+      setUser(userData.user);
+      return true;
+    } catch (error) {
+      console.error('Failed to fetch user:', error);
+      logout();
+      return false;
+    }
+  }, [logout]);
+
+  const login = useCallback(async (newToken: string): Promise<boolean> => {
+    setLoading(true);
+    setToken(newToken);
+    localStorage.setItem('token', newToken);
+    
+    const success = await fetchUser(newToken);
+    setLoading(false);
+    return success;
+  }, [fetchUser]);
+
+  const refreshToken = useCallback(async () => {
+    if (!token) return;
+    
+    try {
+      const { data } = await axios.post('/api/auth/refresh', {}, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const tokenData = data as { token: string };
+      setToken(tokenData.token);
+      localStorage.setItem('token', tokenData.token);
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      logout();
+    }
+  }, [token, logout]);
+
+  useEffect(() => {
+    if (token && !user) {
+      fetchUser(token).finally(() => setLoading(false));
+    } else if (!token) {
+      setLoading(false);
+    }
+  }, [token, user, fetchUser]);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, loginWithToken, logout }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      loading, 
+      login, 
+      logout, 
+      refreshToken 
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -89,6 +101,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  if (!context) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
   return context;
 };

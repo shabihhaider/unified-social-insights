@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import OAuthSuccess from './pages/OAuthSuccess';
 import InstagramInsights from './pages/InstagramInsights';
 import GenerateInsights from './components/GenerateInsights';
+import SelectPage from './pages/SelectPage';
 
 const App: React.FC = () => {
   return (
@@ -18,6 +19,8 @@ const App: React.FC = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/oauth-success" element={<OAuthSuccess />} />
           <Route path="/instagram-insights" element={<InstagramInsights />} />
+          <Route path="/select-page" element={<SelectPage />} />
+          
           {/* Commented until pages exist */}
           {/* <Route path="/login" element={<Login />} /> */}
           {/* <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} /> */}

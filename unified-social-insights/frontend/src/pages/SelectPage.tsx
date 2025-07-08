@@ -1,11 +1,6 @@
-// ✅ Fixed & optimized version of SelectPage.tsx
-// Fixes:
-// - Avoid calling `useEffect` conditionally (was causing ESLint hook rule error)
-// - Improved error handling & efficiency
-// - Cleaner logic for parsing URL token
-
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
 import { useAuth } from '../context/AuthContext';
 import { motion } from 'framer-motion';
 import axios from '../utils/axios';
@@ -17,51 +12,63 @@ interface PageOption {
   instagram_account_id: string;
 }
 
+interface TempTokenPayload {
+  email: string;
+  access_token: string;
+  pages: PageOption[];
+  exp: number;
+}
+
 const SelectPage = () => {
+  const [params] = useSearchParams();
   const navigate = useNavigate();
   const { login } = useAuth();
+
   const [pages, setPages] = useState<PageOption[]>([]);
-  const [token, setToken] = useState<string>('');
+  const [token, setToken] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const urlToken = new URLSearchParams(window.location.search).get('token');
-
-    if (!urlToken) {
-      navigate('/login');
+    const jwtToken = params.get('token');
+    if (!jwtToken) {
+      setError('Missing authentication token.');
+      setTimeout(() => navigate('/login'), 2500);
       return;
     }
 
-    setToken(urlToken);
+    setToken(jwtToken);
 
     try {
-      const decoded = JSON.parse(atob(urlToken.split('.')[1]));
+      const decoded = jwtDecode<TempTokenPayload>(jwtToken);
       if (!decoded.pages || !Array.isArray(decoded.pages)) {
-        throw new Error('Invalid token payload');
+        throw new Error('Missing pages in token');
       }
       setPages(decoded.pages);
     } catch (err) {
-      console.error('Token decode error:', err);
-      setError('Invalid authentication token');
+      console.error('❌ Failed to decode token:', err);
+      setError('Invalid token. Redirecting...');
       setTimeout(() => navigate('/login'), 2500);
     }
-  }, [navigate]);
+  }, [params, navigate]);
+
 
   const handlePageSelect = async (page: PageOption) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.post('/api/auth/finalize-page', {
+      const res = await axios.post('/api/auth/finalize-page', {
         token,
         selected_page: page,
       });
-      const data = response.data as { token: string };
-      await login(data.token);
-      navigate('/instagram-insights');
+
+      const data = res.data as { token: string };
+      const finalToken = data.token;
+      await login(finalToken);
+      navigate('/dashboard/overview');
     } catch (err: any) {
-      const errorMsg = err.response?.data?.error || 'Failed to select page';
-      setError(errorMsg);
+      const msg = err?.response?.data?.error || 'Something went wrong.';
+      setError(msg);
       setLoading(false);
     }
   };
@@ -100,7 +107,7 @@ const SelectPage = () => {
             <span className="text-white text-2xl">📄</span>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Select Your Page</h1>
-          <p className="text-gray-600">Choose a Facebook page with Instagram business account</p>
+          <p className="text-gray-600">Choose a Facebook page with an Instagram business account</p>
         </div>
 
         <div className="grid gap-4">
@@ -142,7 +149,7 @@ const SelectPage = () => {
           >
             <div className="text-6xl mb-4">🔍</div>
             <p className="text-gray-600">
-              No pages found. Please ensure you have a Facebook page with an Instagram business account.
+              No pages found. Make sure your Facebook page is linked to an Instagram business account.
             </p>
           </motion.div>
         )}

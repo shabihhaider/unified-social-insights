@@ -1,31 +1,79 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Login';
-// import Dashboard from './pages/Dashboard';
-// import PrivateRoute from './components/PrivateRoute';
+import Register from './pages/Register';
 import OAuthSuccess from './pages/OAuthSuccess';
 import InstagramInsights from './pages/InstagramInsights';
 import GenerateInsights from './components/GenerateInsights';
 import SelectPage from './pages/SelectPage';
+import LandingPage from './pages/LandingPage';
+import { ThemeToggle } from './components/ThemeToggle';
+import RequireAuth from './routes/RequireAuth';
+import DashboardShell from './layout/DashboardShell';
+import Overview from './pages/dashboard/Overview';
+import Insights from './pages/dashboard/Insights';
+import RequireRole from './routes/RequireRole';
+import Pricing from './pages/Pricing';
+import Onboarding from './pages/Onboarding';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          {/* Temporary test route to view AI output */}
-          <Route path="/" element={<GenerateInsights />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/oauth-success" element={<OAuthSuccess />} />
-          <Route path="/instagram-insights" element={<InstagramInsights />} />
-          <Route path="/select-page" element={<SelectPage />} />
-          
-          {/* Commented until pages exist */}
-          {/* <Route path="/login" element={<Login />} /> */}
-          {/* <Route path="/dashboard" element={<PrivateRoute><Dashboard /></PrivateRoute>} /> */}
-          {/* <Route path="/oauth-success" element={<OAuthSuccess />} /> */}
-        </Routes>
+        <div>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/auth-success" element={<OAuthSuccess />} />
+            <Route path="/select-page" element={<SelectPage />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
+
+
+            {/* Protected Dashboard Layout */}
+            <Route
+              path="/dashboard/*"
+              element={
+                <RequireAuth>
+                  <DashboardShell />
+                </RequireAuth>
+              }
+            >
+              <Route path="overview" element={<Overview />} />
+              <Route
+                path="insights"
+                element={
+                  <RequireRole required="pro">
+                    <Insights />
+                  </RequireRole>
+                }
+              />
+              <Route path="select-page" element={<SelectPage />} />
+              <Route index element={<Navigate to="overview" replace />} />
+            </Route>
+
+            {/* Other Protected Routes */}
+            <Route
+              path="/instagram-insights"
+              element={
+                <RequireAuth>
+                  <InstagramInsights />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/generate-insights"
+              element={
+                <RequireAuth>
+                  <GenerateInsights />
+                </RequireAuth>
+              }
+            />
+          </Routes>
+        </div>
       </Router>
     </AuthProvider>
   );

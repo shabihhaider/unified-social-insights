@@ -1,42 +1,32 @@
-// src/pages/OAuthSuccess.tsx
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const OAuthSuccess = () => {
-  const navigate = useNavigate();
+  const [params] = useSearchParams();
   const { login } = useAuth();
-  const [status, setStatus] = useState('Logging you in...');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    if (!token) {
-      setStatus('❌ No token found in URL');
-      navigate('/');
-      return;
+    const token = params.get('token');
+    if (token) {
+      login(token).then((success) => {
+        if (success) {
+          navigate('/dashboard/overview'); // ✅ Go to dashboard
+        } else {
+          navigate('/login');
+        }
+      });
+    } else {
+      navigate('/login');
     }
-
-    const handleLogin = async () => {
-      setStatus('🔐 Verifying token and fetching user...');
-      const success = await login(token); // ✅ Await the promise
-
-      if (success) {
-        setStatus('✅ Login successful! Redirecting...');
-        navigate('/instagram-insights');
-      } else {
-        setStatus('❌ Login failed. Please try again.');
-        navigate('/login');
-      }
-    };
-
-    handleLogin();
-  }, []);
+  }, [params, login, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center text-gray-600">
-      <p>{status}</p>
+    <div className="flex items-center justify-center h-screen text-center">
+      <p className="text-gray-600 dark:text-gray-300">
+        Logging you in via Google...
+      </p>
     </div>
   );
 };

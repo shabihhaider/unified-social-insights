@@ -3,29 +3,24 @@
 const jwt = require('jsonwebtoken');
 
 module.exports = (req, res, next) => {
-  console.log('🔐 Auth middleware triggered');
-
   const authHeader = req.headers.authorization;
 
-  if (!authHeader) {
-    console.warn('❌ Missing Authorization header');
+  if (!authHeader?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Access denied. No token provided.' });
   }
 
-  const [scheme, token] = authHeader.split(' ');
-
-  if (scheme !== 'Bearer' || !token) {
-    console.warn('❌ Invalid Authorization format. Expected: Bearer <token>');
-    return res.status(400).json({ error: 'Invalid Authorization format. Use Bearer <token>' });
-  }
+  const token = authHeader.split(' ')[1];
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    console.log('✅ JWT verified for user ID:', decoded.id);
+    req.user = decoded; // 🔑 Attach decoded user to request
+    console.log('✅ Authenticated user:', decoded.email || decoded.id);
     next();
   } catch (err) {
-    console.error('❌ Token verification failed:', err.message);
-    return res.status(403).json({ error: 'Invalid or expired token' });
+    const isExpired = err.name === 'TokenExpiredError';
+    console.error('❌ JWT Error:', err.message);
+    return res.status(isExpired ? 401 : 403).json({
+      error: isExpired ? 'Token expired. Please log in again.' : 'Invalid token.',
+    });
   }
 };

@@ -1,4 +1,6 @@
 // backend/src/routes/liveMetaRoutes.js
+const requireAuth = require('../middlewares/auth');
+
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');

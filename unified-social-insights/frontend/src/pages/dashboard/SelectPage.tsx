@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { motion } from 'framer-motion';
-import axios from '../utils/axios';
+import axios from '../../utils/axios';
 
 interface PageOption {
   page_id: string;

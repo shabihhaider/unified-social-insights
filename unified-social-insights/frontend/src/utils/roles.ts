@@ -2,9 +2,9 @@ export type Role = 'free' | 'pro' | 'business' | 'agency';
 
 export const rolePriority: Record<Role, number> = {
   free: 1,
-  pro: 2,
-  business: 3,
-  agency: 4,
+  pro: 1,
+  business: 1,
+  agency: 1,
 };
 
 /**

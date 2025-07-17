@@ -12,11 +12,18 @@ async function connectDB() {
     await pool.connect();
     console.log('✅ Connected to PostgreSQL');
 
+    // ✅ Create pgcrypto extension for UUID generation
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS "pgcrypto";`);
+
+    // ⚠️ Drop all tables to ensure clean state (for development only)
+    await pool.query(`DROP TABLE IF EXISTS instagram_insights CASCADE;`);
+    await pool.query(`DROP TABLE IF EXISTS linked_accounts CASCADE;`);
+    await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
+    console.log('✅ Cleaned up existing tables');
+
     // ✅ Create users table
     await pool.query(`
-      CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE users (
         id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
         email VARCHAR(255) UNIQUE,
         name VARCHAR(255),
@@ -29,11 +36,26 @@ async function connectDB() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Ensured users table exists');
+    console.log('✅ Created users table');
+
+    // ✅ Create linked_accounts table with token expiration tracking
+    await pool.query(`
+      CREATE TABLE linked_accounts (
+        id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        page_id TEXT NOT NULL,
+        page_name TEXT,
+        page_token TEXT,
+        instagram_account_id TEXT,
+        token_expires_at TIMESTAMP,  -- ✅ NEW: Track token expiry
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('✅ Created linked_accounts table with token_expires_at');
 
     // ✅ Create instagram_insights table
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS instagram_insights (
+      CREATE TABLE instagram_insights (
         id SERIAL PRIMARY KEY,
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
         username VARCHAR(255),
@@ -44,8 +66,7 @@ async function connectDB() {
         fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    console.log('✅ Ensured instagram_insights table exists');
-
+    console.log('✅ Created instagram_insights table');
   } catch (err) {
     console.error('❌ PostgreSQL connection failed:', err.message);
     throw err;

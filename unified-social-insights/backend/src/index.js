@@ -54,8 +54,11 @@ app.get("/api/test-db", async (req, res) => {
   }
 });
 
+
 // ✅ Start server
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
   console.log(`✅ Express server running at http://localhost:${PORT}`);
 });
+
+require('./jobs/refreshTokens');

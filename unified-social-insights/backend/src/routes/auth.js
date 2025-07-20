@@ -1,6 +1,7 @@
 const express = require("express");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
+const requireAuth = require('../middlewares/auth');
 const passport = require("passport");
 const bcrypt = require("bcryptjs");
 const router = express.Router();
@@ -29,7 +30,7 @@ router.get(
   passport.authenticate("google", { session: false, failureRedirect: "/" }),
   (req, res) => {
     const { token } = req.user;
-    res.redirect(`http://localhost:3000/auth-success?token=${token}`);
+    res.redirect(`${process.env.CLIENT_URL}/auth-success?token=${token}`);
   }
 );
 
@@ -46,7 +47,28 @@ router.get("/facebook", (req, res) => {
 
 router.get("/facebook/callback", async (req, res) => {
   const code = req.query.code;
+  // No logic here — just redirect to frontend with code
+  return res.redirect(`${process.env.CLIENT_URL}/oauth-success?code=${code}`);
+});
+
+// New POST route to handle Facebook callback from frontend
+router.post("/facebook/callback", requireAuth, async (req, res) => {
+  console.log("POST /facebook/callback HIT");
+  const { code } = req.body;
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader?.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, error: "Missing token" });
+  }
+
+  const token = authHeader.split(" ")[1];
+  
   try {
+    // Verify user token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.id;
+
+    // Exchange code for access token
     const tokenRes = await axios.get("https://graph.facebook.com/v18.0/oauth/access_token", {
       params: {
         client_id: CLIENT_ID,
@@ -56,57 +78,82 @@ router.get("/facebook/callback", async (req, res) => {
       },
     });
 
-    const { access_token, expires_in } = tokenRes.data;
+    const { access_token } = tokenRes.data;
     
-    const meRes = await axios.get("https://graph.facebook.com/v18.0/me", {
-      params: { access_token },
-    });
-    
-    const facebookId = meRes.data.id;
-    const email = `fb_${facebookId}@example.com`;
-    
+    // Get user's Facebook pages
     const pagesRes = await axios.get("https://graph.facebook.com/v18.0/me/accounts", {
       params: { access_token },
     });
 
-    const validPages = [];
+    // Process pages and save to social_accounts
+    let connectedCount = 0;
+    const SocialAccount = require('../models/SocialAccount');
+
     for (const page of pagesRes.data.data) {
       try {
-        const igRes = await axios.get(`https://graph.facebook.com/v19.0/${page.id}`, {
+        // Check for Instagram business account
+        const igRes = await axios.get(`https://graph.facebook.com/v18.0/${page.id}`, {
           params: {
-            fields: "instagram_business_account",
+            fields: "instagram_business_account,followers_count",
             access_token: page.access_token,
           },
         });
-        
+
+        // Save Facebook page
+        const fbAccountData = {
+          user_id: userId,
+          platform: 'facebook',
+          platform_account_id: page.id,
+          username: page.name,
+          display_name: page.name,
+          access_token: page.access_token,
+          account_type: 'page',
+          followers_count: igRes.data.followers_count || 0,
+          permissions: ['pages_read_engagement', 'pages_show_list'],
+          metadata: {
+            instagram_account_id: igRes.data.instagram_business_account?.id
+          }
+        };
+
+        await SocialAccount.create(fbAccountData);
+        connectedCount++;
+
+        // If has Instagram business account, save it too
         if (igRes.data.instagram_business_account?.id) {
-          validPages.push({
-            page_id: page.id,
-            page_name: page.name,
-            page_token: page.access_token,
-            instagram_account_id: igRes.data.instagram_business_account.id,
-            expires_in, // ⬅️ this will be passed forward
-          });
+          const igAccountData = {
+            user_id: userId,
+            platform: 'instagram',
+            platform_account_id: igRes.data.instagram_business_account.id,
+            username: `@${page.name.toLowerCase().replace(/\s+/g, '')}`,
+            display_name: page.name,
+            access_token: page.access_token,
+            account_type: 'business',
+            permissions: ['instagram_basic', 'pages_read_engagement'],
+            metadata: {
+              page_id: page.id
+            }
+          };
+
+          await SocialAccount.create(igAccountData);
+          connectedCount++;
         }
       } catch (error) {
-        console.warn(`⚠️ Failed IG for page ${page.name}:`, error?.response?.data || error.message);
+        console.warn(`Failed to process page ${page.name}:`, error.message);
       }
     }
 
-    if (validPages.length === 0) {
-      return res.status(400).json({ error: "No connected Instagram accounts found." });
-    }
+    res.json({
+      success: true,
+      message: `Successfully connected ${connectedCount} account(s)`,
+      accountsConnected: connectedCount
+    });
 
-    const tempToken = jwt.sign(
-      { email, access_token, pages: validPages },
-      JWT_SECRET,
-      { expiresIn: "2m" }
-    );
-
-    return res.redirect(`http://localhost:3000/select-page?token=${tempToken}`);
   } catch (err) {
-    console.error("❌ OAuth Error:", err?.response?.data || err.message);
-    return res.status(500).json({ error: "OAuth failed" });
+    console.error("❌ Facebook callback error:", err.message);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process Facebook connection"
+    });
   }
 });
 
@@ -118,20 +165,25 @@ router.post("/finalize-page", async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const email = decoded.email;
     
-    // Check if user exists, create if not
-    let userRes = await pool().query(`SELECT id, role FROM users WHERE email = $1`, [email]);
-    let user = userRes.rows[0];
-    
-    if (!user) {
-      // Create new user for Facebook login
-      const insertResult = await pool().query(
-        `INSERT INTO users (email, provider, provider_id, role) 
-         VALUES ($1, $2, $3, $4) 
-         RETURNING id, role`,
-        [email, 'facebook', decoded.email.split('_')[1], 'free']
-      );
-      user = insertResult.rows[0];
-      console.log('✅ Created new Facebook user:', user.id);
+    // If request has JWT and user is authenticated, use their ID:
+    let userId;
+    if (req.user && req.user.id) {
+      userId = req.user.id;
+    } else if (decodedFromJwt && decodedFromJwt.id) {
+      userId = decodedFromJwt.id;
+    } else {
+      // fallback: find or create user by email (as before)
+      let userRes = await pool().query(`SELECT id FROM users WHERE email = $1`, [email]);
+      let user = userRes.rows[0];
+      if (!user) {
+        const insertRes = await pool().query(
+          `INSERT INTO users (email, provider, provider_id, role)
+          VALUES ($1, $2, $3, $4) RETURNING id`,
+          [email, 'facebook', facebookId, 'free']
+        );
+        user = insertRes.rows[0];
+      }
+      userId = user.id;
     }
     
     // Check if this IG account is already linked for this user

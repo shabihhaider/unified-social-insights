@@ -31,12 +31,19 @@ const instagramRoutes = require("./routes/instagram");
 const authRoute = require("./routes/auth");
 const fetchDetailedInsights = require("./routes/instagram/fetchDetailedInsights");
 const protectedRoutes = require('./routes/protectedRoutes');
+const configRoutes = require('./routes/configRoutes');
+const socialAccountsRoute = require('./routes/socialAccounts');
+const SocialAccount = require('./models/SocialAccount');
+SocialAccount.createTable();
 
+app.use('/api/social-accounts', socialAccountsRoute);
+app.use('/api/config', configRoutes);
 app.use("/api/insights", insightsRoute);
 app.use("/api/instagram", instagramRoutes);
 app.use("/api/auth", authRoute);
 app.use(fetchDetailedInsights);
 app.use('/api/protected', protectedRoutes);
+app.use("/api/auth", authRoute);
 
 // ✅ Healthcheck route
 app.get("/api/test", (req, res) => {

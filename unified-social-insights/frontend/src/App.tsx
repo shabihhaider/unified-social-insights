@@ -6,7 +6,6 @@ import Register from './pages/Register';
 import OAuthSuccess from './pages/OAuthSuccess';
 import InstagramInsights from './pages/InstagramInsights';
 import GenerateInsights from './components/GenerateInsights';
-import SelectPage from './pages/dashboard/SelectPage';
 import LandingPage from './pages/LandingPage';
 import { ThemeToggle } from './components/ThemeToggle';
 import RequireAuth from './routes/RequireAuth';
@@ -21,23 +20,26 @@ import Analytics from './pages/dashboard/Analytics';
 import Reports from './pages/dashboard/Reports';
 import Accounts from './pages/dashboard/Accounts';
 import Settings from './pages/dashboard/Settings';
+import FacebookCallback from './pages/FacebookCallback';
+import { ToastContainer } from 'react-toastify';
 
 const App: React.FC = () => {
   return (
     <AuthProvider>
       <Router>
         <div>
+          <ToastContainer />
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/auth-success" element={<OAuthSuccess />} />
-            <Route path="/select-page" element={<SelectPage />} />
             <Route path="/pricing" element={<Pricing />} />
-            <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} />
+            {/* <Route path="/onboarding" element={<RequireAuth><Onboarding /></RequireAuth>} /> */}
             <Route path="/manage-accounts" element={<ManageAccounts />} />
-
+            <Route path="/auth/facebook/callback" element={<FacebookCallback />} />
+            <Route path="/oauth-success" element={<OAuthSuccess />} />
 
             {/* Protected Dashboard Layout */}
             <Route
@@ -57,7 +59,6 @@ const App: React.FC = () => {
                   </RequireRole>
                 }
               />
-              <Route path="select-page" element={<SelectPage />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="reports" element={<Reports />} />
               <Route path="accounts" element={<Accounts />} />

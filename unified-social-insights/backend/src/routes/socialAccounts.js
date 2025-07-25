@@ -1,27 +1,30 @@
+// backend/src/routes/socialAccounts.js
+
 const express = require('express');
 const requireAuth = require('../middlewares/auth');
-const router = express.Router();
 const SocialAccountsController = require('../controllers/socialAccountsController');
-const authenticateToken = require('../middlewares/auth');
 
-// Apply authentication to all routes
-router.use(authenticateToken);
+const router = express.Router();
 
-// GET /api/social-accounts - Get all connected accounts
+// ✅ Protect all routes with JWT middleware
+router.use(requireAuth);
+
+// 📄 GET all connected social accounts for the logged-in user
 router.get('/', SocialAccountsController.getAccounts);
-router.get('/social-accounts', requireAuth, SocialAccountsController.getAccounts);
 
-// POST /api/social-accounts - Connect new account
+// 🔗 Connect or re-connect a social account (if needed)
 router.post('/', SocialAccountsController.connectAccount);
 
-// PUT /api/social-accounts/:accountId/toggle - Toggle account active status
+// 🔄 Toggle active/inactive status
 router.put('/:accountId/toggle', SocialAccountsController.toggleAccount);
 
-// POST /api/social-accounts/:accountId/refresh - Refresh account data
+// 🔁 Refresh/re-fetch latest account data from platform (Facebook/IG)
 router.post('/:accountId/refresh', SocialAccountsController.refreshAccount);
 
-// DELETE /api/social-accounts/:accountId - Delete/disconnect account
+// ❌ Disconnect account (soft delete or real delete)
 router.delete('/:accountId', SocialAccountsController.deleteAccount);
 
+// 📊 Get analytics data for a specific connected account
+router.get('/:accountId/analytics', SocialAccountsController.getAccountAnalytics);
 
 module.exports = router;

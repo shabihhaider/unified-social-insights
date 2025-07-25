@@ -78,7 +78,7 @@ const Register = () => {
       }
       
       localStorage.setItem('token', data.token);
-      navigate('/onboarding');
+      navigate('/dashboard/overview');
     } catch (err) {
       setError('Network error. Please try again.');
       console.error(err);

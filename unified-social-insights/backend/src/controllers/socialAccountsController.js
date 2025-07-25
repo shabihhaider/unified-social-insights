@@ -1,5 +1,6 @@
 const SocialAccount = require('../models/SocialAccount');
 const axios = require('axios');
+const { getFacebookPageAnalytics, getInstagramBusinessAnalytics } = require('../services/socialAccounts');
 
 class SocialAccountsController {
   // Get all social accounts for the authenticated user
@@ -234,6 +235,83 @@ class SocialAccountsController {
       });
     }
   }
+  
+  static async getAccountAnalytics(req, res) {
+    const { accountId } = req.params;
+    const userId = req.user?.id;
+    console.log('getAccountAnalytics called for:', { accountId, userId });
+    
+    try {
+        // Find the social account for this user and accountId
+        const account = await SocialAccount.findById(accountId);
+        
+        if (!account || account.user_id !== userId) {
+        return res.status(404).json({ success: false, error: 'Account not found' });
+        }
+        
+        console.log('Account found:', { platform: account.platform, id: account.id });
+        
+        // Get analytics for this account
+        let analytics;
+        if (account.platform === 'facebook') {
+        analytics = await getFacebookPageAnalytics(account);
+        } else if (account.platform === 'instagram') {
+        analytics = await getInstagramBusinessAnalytics(account);
+        } else {
+        return res.status(400).json({ success: false, error: 'Unsupported platform' });
+        }
+
+        // Check if analytics fetch was successful
+        if (!analytics.success) {
+        return res.status(500).json({ 
+            success: false, 
+            error: analytics.error || 'Failed to fetch analytics data'
+        });
+        }
+
+        // Prepare response payload with analytics data
+        const responsePayload = {
+        success: true,
+        data: {
+            summary: analytics.summary || {},
+            chartData: analytics.chartData || {},
+            topPosts: analytics.topPosts || [],
+            demographics: analytics.demographics || {},
+            pageInfo: analytics.pageInfo, // Facebook specific
+            accountInfo: analytics.accountInfo // Instagram specific
+        }
+        };
+
+        // Add metrics info and warning if available
+        if (analytics.metricsAvailable) {
+        responsePayload.metricsAvailable = analytics.metricsAvailable;
+        }
+        if (analytics.metricsUnavailable) {
+        responsePayload.metricsUnavailable = analytics.metricsUnavailable;
+        }
+        if (analytics.warning) {
+        responsePayload.warning = analytics.warning;
+        }
+
+        res.json(responsePayload);
+        
+    } catch (err) {
+        console.error('[getAccountAnalytics] Error:', err.message);
+        
+        // Handle specific error cases
+        if (err.message === 'Missing access token or platform account ID') {
+        return res.status(400).json({ 
+            success: false, 
+            error: 'Account configuration incomplete. Please reconnect your social media account.' 
+        });
+        }
+        
+        res.status(500).json({ 
+        success: false, 
+        error: 'Failed to fetch analytics' 
+        });
+    }
+    }
 }
 
 // Helper function to format timestamps

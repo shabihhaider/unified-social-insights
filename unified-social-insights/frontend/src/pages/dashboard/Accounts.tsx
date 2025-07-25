@@ -1,4 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+
+import { PLAN_LIMITS } from '../../constants/accountPlans';
+import { SYNC_STATUS_CONFIG } from '../../constants/syncStatus';
+import { SocialAccount } from '../../types/accounts';
+import TooltipButton from '../../components/Accounts/TooltipButton';
+import SkeletonCard from '../../components/Accounts/SkeletonCard';
+import AccountCard from '../../components/Accounts/AccountsCard';
+
 import { motion } from 'framer-motion';
 import { 
   Users, 
@@ -25,236 +33,6 @@ import { socialAccountsAPI } from '../../services/socialAccounts';
 import { fetchFacebookOAuthConfig } from "../../services/oauthConfig";
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
-
-interface SocialAccount {
-  id: string;
-  platform: 'instagram' | 'facebook';
-  username: string;
-  displayName: string;
-  profileImage: string | null;
-  followers: number;
-  accountType: string;
-  isActive: boolean;
-  lastSync: string;
-  syncStatus: 'success' | 'error' | 'syncing' | 'pending';
-  permissions: string[];
-  connectedAt: string;
-  metrics: {
-    posts: number;
-    engagement: number;
-    reach: number;
-  };
-}
-
-// Constants moved outside component to prevent re-creation
-const PLAN_LIMITS = {
-  free: { accounts: 1, features: ['Basic analytics'] },
-  pro: { accounts: 3, features: ['Advanced analytics', 'AI insights'] },
-  business: { accounts: 5, features: ['Full analytics', 'Reports', 'Scheduling'] },
-  agency: { accounts: 10, features: ['All features', 'White-label', 'Team collaboration'] }
-} as const;
-
-const SYNC_STATUS_CONFIG = {
-  success: { icon: CheckCircle2, color: 'text-brand-lime', bg: 'bg-brand-lime/10' },
-  error: { icon: AlertTriangle, color: 'text-error-500', bg: 'bg-error-50 dark:bg-error-900/20' },
-  syncing: { icon: RefreshCw, color: 'text-brand-amber', bg: 'bg-brand-amber/10' },
-  pending: { icon: Clock, color: 'text-brand-zinc', bg: 'bg-brand-zinc/10' }
-} as const;
-
-// Memoized components
-const SkeletonCard = React.memo(() => (
-  <div className="animate-pulse bg-brand-pure/40 dark:bg-brand-carbon/30 rounded-xl p-6 border border-brand-frost/30 dark:border-brand-zinc/40 shadow-brand flex flex-col gap-4">
-    <div className="flex gap-4 items-center">
-      <div className="w-16 h-16 rounded-xl bg-brand-electric/20"></div>
-      <div className="flex-1 space-y-2">
-        <div className="h-4 bg-brand-frost/30 rounded w-1/2"></div>
-        <div className="h-3 bg-brand-frost/20 rounded w-1/3"></div>
-      </div>
-    </div>
-    <div className="grid grid-cols-3 gap-4">
-      <div className="h-4 bg-brand-frost/20 rounded"></div>
-      <div className="h-4 bg-brand-frost/20 rounded"></div>
-      <div className="h-4 bg-brand-frost/20 rounded"></div>
-    </div>
-    <div className="h-3 bg-brand-frost/10 rounded w-1/4 mt-2"></div>
-  </div>
-));
-
-const TooltipButton = React.memo(({ 
-  onClick, 
-  disabled, 
-  className, 
-  title, 
-  children 
-}: {
-  onClick: () => void;
-  disabled?: boolean;
-  className: string;
-  title: string;
-  children: React.ReactNode;
-}) => (
-  <div className="relative group">
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={className}
-      title={title}
-    >
-      {children}
-    </button>
-    <div className="absolute left-1/2 -bottom-8 z-50 -translate-x-1/2 opacity-0 group-hover:opacity-100 pointer-events-none bg-gray-800 text-white text-xs rounded px-2 py-1 transition">
-      {title}
-    </div>
-  </div>
-));
-
-const AccountCard = React.memo(({ 
-  account, 
-  onRefresh, 
-  onToggle, 
-  onDelete, 
-  isRefreshing 
-}: { 
-  account: SocialAccount;
-  onRefresh: (id: string) => void;
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-  isRefreshing: boolean;
-}) => {
-  const syncStatus = SYNC_STATUS_CONFIG[account.syncStatus] || SYNC_STATUS_CONFIG.pending;
-  
-  const formatMetricValue = useCallback((value: number | undefined) => {
-    if (typeof value !== 'number') return '—';
-    return value > 999 ? value.toLocaleString() : value.toString();
-  }, []);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`bg-brand-pure/80 dark:bg-brand-carbon/60 backdrop-blur-sm rounded-xl p-6 border border-brand-frost/30 dark:border-brand-zinc/40 shadow-brand hover:shadow-brand-lg transition-all duration-300 ${
-        !account.isActive ? 'opacity-75' : ''
-      }`}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center gap-4">
-          <div className="relative">
-            {account.profileImage ? (
-              <img 
-                src={account.profileImage} 
-                alt={account.displayName}
-                className="w-16 h-16 rounded-xl object-cover"
-              />
-            ) : (
-              <div className="w-16 h-16 bg-brand-electric/10 rounded-xl flex items-center justify-center">
-                {account.platform === 'instagram' ? (
-                  <Instagram size={28} className="text-brand-electric" />
-                ) : (
-                  <Facebook size={28} className="text-brand-electric" />
-                )}
-              </div>
-            )}
-            <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-brand-pure dark:border-brand-carbon flex items-center justify-center ${
-              account.isActive ? 'bg-brand-lime' : 'bg-brand-zinc'
-            }`}>
-              {account.isActive ? (
-                <Wifi size={10} className="text-brand-pure" />
-              ) : (
-                <WifiOff size={10} className="text-brand-pure" />
-              )}
-            </div>
-          </div>
-          <div>
-            <h3 className="font-semibold text-brand-void dark:text-brand-pure text-lg">{account.username}</h3>
-            <p className="text-sm text-brand-zinc dark:text-brand-frost">{account.displayName}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm text-brand-zinc dark:text-brand-frost">
-                {formatMetricValue(account.followers)} followers
-              </span>
-              <span className="px-2 py-1 bg-brand-electric/10 text-brand-electric text-xs rounded-full capitalize">
-                {account.accountType}
-              </span>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <TooltipButton
-            onClick={() => onToggle(account.id)}
-            className={`p-2 rounded-lg transition-all duration-200 ${
-              account.isActive 
-                ? 'text-brand-lime hover:bg-brand-lime/10' 
-                : 'text-brand-zinc hover:bg-brand-zinc/10'
-            }`}
-            title={account.isActive ? 'Deactivate account' : 'Activate account'}
-          >
-            {account.isActive ? <Eye size={16} /> : <EyeOff size={16} />}
-          </TooltipButton>
-
-          <TooltipButton
-            onClick={() => onRefresh(account.id)}
-            disabled={isRefreshing}
-            className="p-2 text-brand-electric hover:bg-brand-electric/10 rounded-lg transition-all duration-200 disabled:opacity-50"
-            title="Refresh account data"
-          >
-            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-          </TooltipButton>
-
-          <TooltipButton
-            onClick={() => {}}
-            className="p-2 text-brand-zinc dark:text-brand-frost hover:text-brand-electric hover:bg-brand-electric/10 rounded-lg transition-all duration-200"
-            title="Account settings"
-          >
-            <Settings size={16} />
-          </TooltipButton>
-
-          <TooltipButton
-            onClick={() => onDelete(account.id)}
-            className="p-2 text-brand-zinc dark:text-brand-frost hover:text-error-500 hover:bg-error-50 dark:hover:bg-error-900/20 rounded-lg transition-all duration-200"
-            title="Disconnect account"
-          >
-            <Trash2 size={16} />
-          </TooltipButton>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-4 mb-4">
-        <div className="text-center">
-          <div className="text-lg font-bold text-brand-void dark:text-brand-pure">
-            {formatMetricValue(account.metrics.posts)}
-          </div>
-          <div className="text-xs text-brand-zinc dark:text-brand-frost">Posts</div>
-        </div>
-        <div className="text-center">
-          <div className="text-lg font-bold text-brand-void dark:text-brand-pure">
-            {formatMetricValue(account.metrics.engagement)}{typeof account.metrics.engagement === 'number' ? '%' : ''}
-          </div>
-          <div className="text-xs text-brand-zinc dark:text-brand-frost">Engagement</div>
-        </div>
-        <div className="text-center">
-          <div className="text-lg font-bold text-brand-void dark:text-brand-pure">
-            {formatMetricValue(account.metrics.reach)}
-          </div>
-          <div className="text-xs text-brand-zinc dark:text-brand-frost">Reach</div>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between pt-4 border-t border-brand-frost/20 dark:border-brand-zinc/30">
-        <div className="flex items-center gap-2">
-          <div className={`p-1 rounded ${syncStatus.bg}`}>
-            <syncStatus.icon size={12} className={`${syncStatus.color} ${account.syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
-          </div>
-          <span className="text-sm text-brand-zinc dark:text-brand-frost">
-            Last sync: {account.lastSync}
-          </span>
-        </div>
-        <button className="text-brand-electric hover:text-brand-neon text-sm font-medium transition-colors duration-200 flex items-center gap-1">
-          View Details
-          <ExternalLink size={12} />
-        </button>
-      </div>
-    </motion.div>
-  );
-});
 
 const Accounts = () => {
   const { user } = useAuth();
@@ -312,19 +90,22 @@ const Accounts = () => {
     const error = urlParams.get('error');
     const linked = urlParams.get('linked');
 
-    if (error) {
-      setError(`Connection Failed: ${error}`);
+    if (error === 'oauth_failed') {
+      toast.warn('Connected, but no analytics data available yet.');
+    } else if (error) {
       toast.error(`Connection Failed: ${error}`);
-    } else if (linked === 'facebook') {
-      setError(null);
-      toast.success('Facebook account linked successfully!');
-      fetchAccounts();
+      setError(`Connection Failed: ${error}`);
+    } else if (linked === 'facebook' || linked === 'instagram') {
+      setError(null);
+      toast.success(`${linked.charAt(0).toUpperCase() + linked.slice(1)} account linked successfully!`);
+      fetchAccounts();
     }
 
     if (error || linked) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [fetchAccounts]);
+
 
   // Initial fetch
   useEffect(() => {
@@ -402,8 +183,9 @@ const Accounts = () => {
         return;
       }
 
-      const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${config.facebookAppId}&redirect_uri=${encodeURIComponent(config.facebookRedirectUri)}&scope=email,public_profile,pages_read_engagement,instagram_basic,instagram_manage_insights&response_type=code`;
+      const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?client_id=${config.facebookAppId}&redirect_uri=${encodeURIComponent(config.facebookRedirectUri)}&scope=pages_show_list,pages_read_engagement,pages_read_user_content,instagram_basic,instagram_manage_insights&response_type=code`;
       
+      toast.info("Redirecting to Facebook...");
       window.location.href = authUrl;
     } catch (error) {
       console.error("Facebook OAuth failed", error);

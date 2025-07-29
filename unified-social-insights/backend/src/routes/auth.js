@@ -376,7 +376,7 @@ router.post("/register", async (req, res) => {
   const { email, name, password } = req.body;
   
   try {
-    const existingUser = await UserModel.findUserByEmail(email);
+    const existingUser = await UserModel.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({ error: "User already exists." });
     }
@@ -405,7 +405,7 @@ router.post("/login", async (req, res) => {
   const { email, password } = req.body;
   
   try {
-    const user = await UserModel.findUserByEmail(email);
+    const user = await UserModel.findByEmail(email);
     if (!user || user.provider !== "local") {
       return res.status(401).json({ error: "Invalid credentials." });
     }

@@ -68,7 +68,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           headers: { Authorization: `Bearer ${authToken}` },
         });
         const typedData = data as { user: User };
-        setUser(typedData.user);
+        setUser({
+          ...typedData.user,
+          instagram_account_id: typedData.user.instagram_account_id || typedData.user.id
+        });
         return true;
       } catch (err) {
         console.error('❌ Failed to fetch user:', err);

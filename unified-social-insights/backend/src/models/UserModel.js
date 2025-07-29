@@ -1,58 +1,67 @@
 // backend/src/models/UserModel.js
-const { pool } = require('../utils/db');
+const BaseModel = require('./BaseModel');
 
-const findUserByEmail = async (email) => {
-  const result = await pool().query(
-    'SELECT * FROM users WHERE email = $1',
-    [email]
-  );
-  return result.rows[0];
-};
+class User extends BaseModel {
+  static async createTable() {
+    const query = `
+      CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        email VARCHAR(255) UNIQUE NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        provider VARCHAR(50) NOT NULL,
+        provider_id VARCHAR(255),
+        role VARCHAR(20) DEFAULT 'free' CHECK (role IN ('free', 'premium', 'admin')),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
 
-const findUserByProviderId = async (provider, providerId) => {
-  const result = await pool().query(
-    'SELECT * FROM users WHERE provider = $1 AND provider_id = $2',
-    [provider, providerId]
-  );
-  return result.rows[0];
-};
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_provider ON users(provider, provider_id);
+    `;
 
-const createUser = async ({ email, name, password, provider, providerId, role = 'free' }) => {
-  if (!email || !name || !password || !provider) {
-    throw new Error("Missing required user fields");
-  }
+    await this.query(query);
+    console.log('✅ Users table ensured');
+  }
 
-  console.log('🧪 DEBUG INSERT VALUES:', {
-    email,
-    name,
-    password,
-    provider,
-    providerId,
-    role
-  });
+  static async findByEmail(email) {
+    const result = await this.query('SELECT * FROM users WHERE email = $1', [email]);
+    return result.rows[0] || null;
+  }
 
-  try {
-    const result = await pool().query(
-      'INSERT INTO users (email, name, password, provider, provider_id, role) ' +
-      'VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [
-        email.trim(),
-        name.trim(),
-        password,
-        provider,
-        providerId ?? null,
-        role
-      ]
+  static async findByProviderId(provider, providerId) {
+    const result = await this.query(
+      'SELECT * FROM users WHERE provider = $1 AND provider_id = $2',
+      [provider, providerId]
     );
-    return result.rows[0];
-  } catch (error) {
-    console.error('❌ PostgreSQL INSERT error:', error.message);
-    throw error;
-  }
-};
+    return result.rows[0] || null;
+  }
 
-module.exports = {
-  findUserByEmail,
-  findUserByProviderId,
-  createUser,
-};
+  static async findById(id) {
+    const result = await this.query('SELECT * FROM users WHERE id = $1', [id]);
+    return result.rows[0] || null;
+  }
+
+  static async create({ email, name, password, provider, providerId, role = 'free' }) {
+    if (!email || !name || !password || !provider) {
+      throw new Error("Missing required user fields");
+    }
+
+    const result = await this.query(`
+      INSERT INTO users (email, name, password, provider, provider_id, role)
+      VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+    `, [email.trim(), name.trim(), password, provider, providerId || null, role]);
+
+    return result.rows[0];
+  }
+
+  static async updateLastLogin(id) {
+    await this.query(
+      'UPDATE users SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [id]
+    );
+  }
+}
+
+module.exports = User;

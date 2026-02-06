@@ -132,7 +132,7 @@ The application architecture supports adding additional platforms through the so
 - Best/worst performing content identification
 
 ### 4. **Automated Processing**
-- Background job runs every 5 minutes to fetch and process new insights
+- Background jobs for periodic insight fetching and processing (configurable intervals)
 - Automatic token refresh for social media accounts
 - Real-time sync status tracking
 
